@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive 3D Bookshelf</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #121212;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            align-items: center;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            width: 100%;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #ffffff, #b0b0b0);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-weight: 700;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.7;
+            color: #b0b0b0;
+        }
+
+        /* Bookshelf Styling - Glassmorphism */
+        .bookshelf {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 
+                0 8px 32px rgba(0, 0, 0, 0.3),
+                inset 0 0 20px rgba(255, 255, 255, 0.05);
+            position: relative;
+            max-width: 1400px;
+            width: 100%;
+        }
+
+        /* Glassmorphism overlay removed */
+        .bookshelf::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: none;
+            pointer-events: none;
+        }
+
+        .shelves {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 40px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .shelf-section {
+            perspective: 1200px;
+        }
+
+        /* Individual scene container for each book */
+        .scene {
+            width: 100%;
+            height: 280px;
+            position: relative;
+            perspective: 1000px;
+        }
+
+        /* Book container with 3D preservation */
+        .book {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transform-style: preserve-3d;
+            transform: translateZ(0) rotateX(5deg) rotateY(-8deg) rotateZ(2deg);
+            transition: transform 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            cursor: pointer;
+            filter: drop-shadow(0 15px 25px rgba(0, 0, 0, 0.3));
+        }
+
+        /* Book faces */
+        .face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            font-weight: bold;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            backface-visibility: hidden;
+        }
+
+        /* Front Cover - acts as a hinge on the left with spine groove */
+        .front {
+            transform: translateZ(20px);
+            transform-origin: 0% 50%;
+            background: linear-gradient(135deg, var(--cover-color), calc(var(--cover-color) * 0.8));
+            color: white;
+            font-size: 1.3rem;
+            padding: 20px;
+            border-radius: 4px 0 0 4px;
+            flex-direction: column;
+            transition: transform 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            z-index: 10;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Realistic spine groove */
+        .front::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            background: linear-gradient(
+                90deg,
+                rgba(0, 0, 0, 0.6),
+                rgba(0, 0, 0, 0.2),
+                transparent
+            );
+            z-index: 1;
+        }
+
+        .front .title {
+            font-size: 1.4rem;
+            margin-bottom: 8px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.4);
+            position: relative;
+            z-index: 2;
+        }
+
+        .front .author {
+            font-size: 0.9rem;
+            opacity: 0.85;
+            position: relative;
+            z-index: 2;
+        }
+
+        /* Spine - visible from the side */
+        .spine {
+            transform: rotateY(90deg) translateZ(12px);
+            background: linear-gradient(90deg, var(--cover-color), calc(var(--cover-color) * 0.9));
+            color: white;
+            font-size: 0.9rem;
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            padding: 15px;
+            border-radius: 0;
+            flex-direction: column;
+            justify-content: center;
+            border-right: 1px solid rgba(0, 0, 0, 0.2);
+            width: 24px;
+            left: 0;
+        }
+
+        /* Back Cover - hidden initially */
+        .back {
+            transform: translateZ(-20px) rotateY(180deg);
+            background: linear-gradient(135deg, calc(var(--cover-color) * 0.6), calc(var(--cover-color) * 0.4));
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 0.95rem;
+            padding: 20px;
+            border-radius: 0 4px 4px 0;
+            flex-direction: column;
+        }
+
+        .back-content {
+            line-height: 1.6;
+            font-size: 0.85rem;
+        }
+
+        /* Inside Pages - revealed when book opens with stacked paper effect */
+        .inside {
+            transform: rotateY(0deg) translateZ(0px);
+            background: linear-gradient(135deg, #FFF8DC, #FFFACD);
+            color: #333;
+            padding: 20px;
+            border-radius: 0;
+            flex-direction: column;
+            justify-content: space-between;
+            position: relative;
+            box-shadow:
+                inset -1px 0 0 rgba(0, 0, 0, 0.05),
+                inset -2px 0 1px rgba(0, 0, 0, 0.04),
+                inset -3px 0 1px rgba(0, 0, 0, 0.03),
+                inset -4px 0 2px rgba(0, 0, 0, 0.02),
+                inset -5px 0 2px rgba(0, 0, 0, 0.02),
+                inset -8px 0 3px rgba(0, 0, 0, 0.01),
+                inset -12px 0 4px rgba(0, 0, 0, 0.01),
+                inset -20px 0 6px rgba(0, 0, 0, 0.008);
+        }
+
+        .inside-content {
+            flex: 1;
+            overflow-y: auto;
+            margin-bottom: 15px;
+        }
+
+        .inside-header {
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: var(--cover-color);
+        }
+
+        .book-info {
+            font-size: 0.85rem;
+            line-height: 1.6;
+            margin-bottom: 10px;
+        }
+
+        .book-info-label {
+            font-weight: bold;
+            color: var(--cover-color);
+        }
+
+        /* Neon status indicator */
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-top: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status-badge::before {
+            content: '';
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: currentColor;
+        }
+
+        .status-available {
+            color: #4CAF50;
+        }
+
+        .status-available::before {
+            box-shadow: 0 0 8px #4CAF50;
+            animation: glow-green 2s ease-in-out infinite;
+        }
+
+        .status-issued {
+            color: #FFA500;
+        }
+
+        .status-issued::before {
+            box-shadow: 0 0 8px #FFA500;
+            animation: glow-amber 1s ease-in-out infinite;
+        }
+
+        @keyframes glow-green {
+            0%, 100% {
+                box-shadow: 0 0 8px #4CAF50;
+            }
+            50% {
+                box-shadow: 0 0 15px #4CAF50, 0 0 20px rgba(76, 175, 80, 0.5);
+            }
+        }
+
+        @keyframes glow-amber {
+            0%, 100% {
+                box-shadow: 0 0 8px #FFA500;
+            }
+            50% {
+                box-shadow: 0 0 15px #FFA500, 0 0 20px rgba(255, 165, 0, 0.5);
+            }
+        }
+
+        .inside-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .inside-actions button {
+            flex: 1;
+            padding: 8px 12px;
+            background-color: var(--cover-color);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: bold;
+            transition: all 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+        }
+
+        .inside-actions button:hover {
+            background-color: calc(var(--cover-color) * 0.85);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .inside-actions button:active {
+            transform: scale(0.95);
+        }
+
+        /* OPEN STATE */
+        .book.open {
+            transform: translateZ(30px) rotateX(0deg) rotateY(0deg) rotateZ(0deg);
+        }
+
+        .book.open .front {
+            transform: rotateY(-170deg);
+        }
+
+        /* Depth of Field - blurred books */
+        .book.blurred {
+            filter: blur(5px) brightness(0.6);
+            pointer-events: none;
+        }
+
+        /* Book info display below each book */
+        .book-meta {
+            margin-top: 15px;
+            font-size: 0.9rem;
+            color: rgba(255, 255, 255, 0.9);
+            text-align: center;
+            font-weight: 500;
+        }
+
+        /* Search bar styling - Glassmorphism */
+        .search-container {
+            margin-bottom: 30px;
+            width: 100%;
+            max-width: 500px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 12px 16px;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            color: white;
+            font-size: 1rem;
+            transition: all 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+            outline: none;
+        }
+
+        .search-input::placeholder {
+            color: rgba(255, 255, 255, 0.4);
+        }
+
+        .search-input:focus {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+        }
+
+        .search-info {
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.5);
+            margin-top: 8px;
+            text-align: center;
+        }
+
+        .no-results {
+            text-align: center;
+            color: rgba(255, 255, 255, 0.6);
+            padding: 40px 20px;
+            font-size: 1.1rem;
+        }
+
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 1.8rem;
+            }
+
+            .shelves {
+                grid-template-columns: 1fr;
+                gap: 30px;
+            }
+
+            .bookshelf {
+                padding: 20px;
+            }
+
+            .search-container {
+                max-width: 100%;
+            }
+        }
+
+        /* Smooth scrolling for inside content */
+        .inside-content::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .inside-content::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .inside-content::-webkit-scrollbar-thumb {
+            background: var(--cover-color);
+            border-radius: 3px;
+        }
+
+        .inside-content::-webkit-scrollbar-thumb:hover {
+            background: calc(var(--cover-color) * 0.8);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📚 Dark Gallery</h1>
+            <p>Premium Library Management System</p>
+        </div>
+
+        <div class="search-container">
+            <input 
+                type="text" 
+                id="searchInput" 
+                class="search-input" 
+                placeholder="Search by title or author..."
+                autocomplete="off"
+            >
+            <div class="search-info" id="searchInfo"></div>
+        </div>
+
+        <div class="bookshelf">
+            <div class="shelves" id="bookshelf"></div>
+        </div>
+    </div>
+
+    <script>
+        // Mock database of books
+        const booksData = [
+            {
+                id: 1,
+                title: 'The Great Gatsby',
+                author: 'F. Scott Fitzgerald',
+                coverColor: '#D32F2F',
+                spineText: 'Gatsby',
+                status: 'Available',
+                description: 'A classic of American literature that has been acclaimed by generations of readers.',
+                year: 1925
+            },
+            {
+                id: 2,
+                title: 'To Kill a Mockingbird',
+                author: 'Harper Lee',
+                coverColor: '#1976D2',
+                spineText: 'Mockingbird',
+                status: 'Issued',
+                description: 'One of the most widely read books in the United States, this novel explores themes of race and innocence.',
+                year: 1960
+            },
+            {
+                id: 3,
+                title: '1984',
+                author: 'George Orwell',
+                coverColor: '#0D47A1',
+                spineText: '1984',
+                status: 'Available',
+                description: 'A dystopian novel set in a totalitarian state, exploring themes of power, corruption, and control.',
+                year: 1949
+            },
+            {
+                id: 4,
+                title: 'Pride and Prejudice',
+                author: 'Jane Austen',
+                coverColor: '#C2185B',
+                spineText: 'Pride',
+                status: 'Available',
+                description: 'A romantic novel of manners and marriage, filled with wit and social commentary.',
+                year: 1813
+            },
+            {
+                id: 5,
+                title: 'The Catcher in the Rye',
+                author: 'J.D. Salinger',
+                coverColor: '#F57C00',
+                spineText: 'Catcher',
+                status: 'Issued',
+                description: 'A coming-of-age novel following a troubled teenager navigating the complexities of adulthood.',
+                year: 1951
+            },
+            {
+                id: 6,
+                title: 'Brave New World',
+                author: 'Aldous Huxley',
+                coverColor: '#6A1B9A',
+                spineText: 'Brave',
+                status: 'Available',
+                description: 'A dystopian novel exploring a seemingly perfect society maintained through psychological control.',
+                year: 1932
+            }
+        ];
+
+        let filteredBooks = [...booksData];
+        let currentOpenBook = null;
+
+        /**
+         * Filter books based on search query
+         */
+        function filterBooks(query) {
+            if (!query.trim()) {
+                filteredBooks = [...booksData];
+            } else {
+                const lowerQuery = query.toLowerCase();
+                filteredBooks = booksData.filter(book =>
+                    book.title.toLowerCase().includes(lowerQuery) ||
+                    book.author.toLowerCase().includes(lowerQuery)
+                );
+            }
+            updateSearchInfo();
+            renderBooks();
+        }
+
+        /**
+         * Update search info text
+         */
+        function updateSearchInfo() {
+            const searchInfo = document.getElementById('searchInfo');
+            const searchInput = document.getElementById('searchInput');
+            const query = searchInput.value.trim();
+
+            if (!query) {
+                searchInfo.textContent = '';
+            } else {
+                searchInfo.textContent = `Found ${filteredBooks.length} book${filteredBooks.length !== 1 ? 's' : ''}`;
+            }
+        }
+
+        /**
+         * Render function to dynamically generate books from the filtered data array
+         */
+        function renderBooks() {
+            const bookshelfContainer = document.getElementById('bookshelf');
+            bookshelfContainer.innerHTML = '';
+
+            if (filteredBooks.length === 0) {
+                bookshelfContainer.innerHTML = '<div class="no-results">No books found. Try a different search.</div>';
+                return;
+            }
+
+            filteredBooks.forEach(bookData => {
+                // Create the shelf section
+                const shelfSection = document.createElement('div');
+                shelfSection.className = 'shelf-section';
+
+                // Create the scene (perspective container)
+                const scene = document.createElement('div');
+                scene.className = 'scene';
+
+                // Create the book (3D container)
+                const book = document.createElement('div');
+                book.className = 'book';
+                book.setAttribute('data-book-id', bookData.id);
+                book.style.setProperty('--cover-color', bookData.coverColor);
+
+                // Create front cover
+                const frontFace = document.createElement('div');
+                frontFace.className = 'face front';
+                frontFace.innerHTML = `
+                    <div class="title">${bookData.title}</div>
+                    <div class="author">by ${bookData.author}</div>
+                `;
+
+                // Create spine
+                const spineFace = document.createElement('div');
+                spineFace.className = 'face spine';
+                spineFace.textContent = bookData.spineText;
+
+                // Create back cover
+                const backFace = document.createElement('div');
+                backFace.className = 'face back';
+                backFace.innerHTML = `
+                    <div class="back-content">
+                        <p><strong>${bookData.title}</strong></p>
+                        <p>${bookData.author}</p>
+                        <p style="font-size: 0.8rem; margin-top: 10px; opacity: 0.7;">Published in ${bookData.year}</p>
+                        <p style="font-size: 0.75rem; margin-top: 15px; line-height: 1.4;">${bookData.description}</p>
+                    </div>
+                `;
+
+                // Create inside pages
+                const insideFace = document.createElement('div');
+                insideFace.className = 'face inside';
+                const statusClass = bookData.status === 'Available' ? 'status-available' : 'status-issued';
+                const actionButton = bookData.status === 'Available' 
+                    ? '<button onclick="issueBook(event)">Issue Book</button>'
+                    : '<button onclick="returnBook(event)">Return Book</button>';
+                
+                insideFace.innerHTML = `
+                    <div class="inside-content">
+                        <div class="inside-header">${bookData.title}</div>
+                        <div class="book-info">
+                            <div><span class="book-info-label">Author:</span> ${bookData.author}</div>
+                            <div><span class="book-info-label">Year:</span> ${bookData.year}</div>
+                            <div><span class="book-info-label">ID:</span> LMS-${String(bookData.id).padStart(4, '0')}</div>
+                        </div>
+                        <p style="font-size: 0.8rem; line-height: 1.5; margin-top: 10px;">${bookData.description}</p>
+                        <div class="status-badge ${statusClass}">${bookData.status}</div>
+                    </div>
+                    <div class="inside-actions">
+                        ${actionButton}
+                        <button onclick="closeBook(event)">Close</button>
+                    </div>
+                `;
+
+                // Append all faces to the book
+                book.appendChild(frontFace);
+                book.appendChild(spineFace);
+                book.appendChild(backFace);
+                book.appendChild(insideFace);
+
+                // Add hover physics listeners
+                book.addEventListener('mousemove', handleHoverPhysics);
+                book.addEventListener('mouseleave', handleHoverLeave);
+
+                // Append book to scene
+                scene.appendChild(book);
+
+                // Create metadata display
+                const bookMeta = document.createElement('div');
+                bookMeta.className = 'book-meta';
+                bookMeta.textContent = `${bookData.title} • ${bookData.status}`;
+
+                // Append scene and meta to shelf section
+                shelfSection.appendChild(scene);
+                shelfSection.appendChild(bookMeta);
+
+                // Append shelf section to bookshelf
+                bookshelfContainer.appendChild(shelfSection);
+
+                // Attach click event listener to toggle open state
+                book.addEventListener('click', toggleBook);
+            });
+        }
+
+        /**
+         * Handle hover physics - apply dynamic rotation based on cursor position
+         */
+        function handleHoverPhysics(event) {
+            const book = this;
+            
+            // Don't apply physics if book is already open
+            if (book.classList.contains('open')) {
+                return;
+            }
+
+            const rect = book.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+
+            const cursorX = event.clientX;
+            const cursorY = event.clientY;
+
+            // Calculate relative position
+            const relX = (cursorX - centerX) / (rect.width / 2);
+            const relY = (cursorY - centerY) / (rect.height / 2);
+
+            // Apply subtle rotations
+            const rotateX = -relY * 8; // Max 8 degrees
+            const rotateY = relX * 8;
+
+            book.style.transform = `translateZ(0) rotateX(${5 + rotateX}deg) rotateY(${-8 + rotateY}deg) rotateZ(${2}deg)`;
+        }
+
+        /**
+         * Reset hover physics on mouse leave
+         */
+        function handleHoverLeave(event) {
+            const book = this;
+            book.style.transform = 'translateZ(0) rotateX(5deg) rotateY(-8deg) rotateZ(2deg)';
+        }
+
+        /**
+         * Toggle the open state of a book when clicked
+         */
+        function toggleBook(event) {
+            // Don't toggle if clicking a button inside
+            if (event.target.tagName === 'BUTTON') {
+                return;
+            }
+
+            // Close any open book first and remove blur
+            const allBooks = document.querySelectorAll('.book');
+            allBooks.forEach(b => {
+                if (b !== this && b.classList.contains('open')) {
+                    b.classList.remove('open');
+                }
+                if (b !== this && b.classList.contains('blurred')) {
+                    b.classList.remove('blurred');
+                }
+            });
+
+            // Toggle current book
+            this.classList.toggle('open');
+            currentOpenBook = this.classList.contains('open') ? this : null;
+
+            // Apply depth of field - blur other books
+            if (this.classList.contains('open')) {
+                allBooks.forEach(b => {
+                    if (b !== this) {
+                        b.classList.add('blurred');
+                    }
+                });
+            } else {
+                allBooks.forEach(b => {
+                    b.classList.remove('blurred');
+                });
+            }
+        }
+
+        /**
+         * Handle issuing a book
+         */
+        function issueBook(event) {
+            event.stopPropagation(); // Prevent triggering the book toggle
+            const book = event.target.closest('.book');
+            const bookId = parseInt(book.getAttribute('data-book-id'));
+            const bookObj = booksData.find(b => b.id === bookId);
+            
+            if (bookObj && bookObj.status === 'Available') {
+                bookObj.status = 'Issued';
+                renderBooks();
+                alert(`✓ "${bookObj.title}" has been issued successfully!`);
+            }
+        }
+
+        /**
+         * Handle returning a book
+         */
+        function returnBook(event) {
+            event.stopPropagation(); // Prevent triggering the book toggle
+            const book = event.target.closest('.book');
+            const bookId = parseInt(book.getAttribute('data-book-id'));
+            const bookObj = booksData.find(b => b.id === bookId);
+            
+            if (bookObj && bookObj.status === 'Issued') {
+                bookObj.status = 'Available';
+                renderBooks();
+                alert(`✓ "${bookObj.title}" has been returned successfully!`);
+            }
+        }
+
+        /**
+         * Close a book by removing the open class
+         */
+        function closeBook(event) {
+            event.stopPropagation(); // Prevent triggering the book toggle
+            const book = event.target.closest('.book');
+            book.classList.remove('open');
+            
+            // Remove blur from all books
+            const allBooks = document.querySelectorAll('.book');
+            allBooks.forEach(b => {
+                b.classList.remove('blurred');
+            });
+            
+            currentOpenBook = null;
+        }
+
+        // Initialize the bookshelf on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            renderBooks();
+
+            // Setup search functionality
+            const searchInput = document.getElementById('searchInput');
+            searchInput.addEventListener('input', (e) => {
+                filterBooks(e.target.value);
+            });
+        });
+    </script>
+</body>
+</html>
