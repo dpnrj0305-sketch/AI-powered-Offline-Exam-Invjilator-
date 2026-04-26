@@ -1,2 +1,1 @@
-# Interactive-3D-bookshelf
-An interactive 3D bookshelf UI acting as a dynamic frontend for a Library Management System. Built with HTML, CSS 3D transforms, and JavaScript, it renders database records as physical books that users can open. This upgrades standard catalogs into an immersive browsing experience, demonstrating advanced CSS spatial and DOM rendering skills.
+An AI-powered offline invigilator ensures exam integrity without needing an internet connection. Using on-device computer vision and edge AI, it continuously monitors students to instantly detect suspicious movements, unauthorized devices, and audio anomalies. It securely flags cheating attempts to maintain fairness and strict privacy.
